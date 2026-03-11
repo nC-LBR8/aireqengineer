@@ -98,9 +98,13 @@ If you want a cleaner starter setup for another repository, you can copy only th
 ## Files
 
 - `.opencode/agents/requirements-enricher.md` - specialized subagent that derives requirement, feature, and user story artifacts
+- `.opencode/agents/azure-devops-uploader.md` - specialized subagent that validates config and uploads story artifacts to Azure DevOps
 - `.opencode/commands/req-enrich.md` - command for direct text input or the default use case file
 - `.opencode/commands/req-enrich-file.md` - command for a single local use case file
 - `.opencode/commands/req-enrich-batch.md` - command for multiple use case files in one folder
+- `.opencode/commands/stories-to-azuredevops.md` - command for uploading one or many story folders to Azure DevOps
+- `.opencode/config/azure-devops.json` - configurable Azure DevOps endpoint, defaults, and artifact-to-work-item mapping
+- `.opencode/scripts/upload-azure-devops.mjs` - REST uploader with validation, idempotent state files, and batch support
 
 ## Commands
 
@@ -132,6 +136,18 @@ Generate artifacts from all supported use case files in a folder:
 
 ```text
 /req-enrich-batch usecases/
+```
+
+Upload one story folder to Azure DevOps:
+
+```text
+/stories-to-azuredevops stories/pomodoro-timer
+```
+
+Upload all story folders from `stories/` alphabetically:
+
+```text
+/stories-to-azuredevops stories/
 ```
 
 ## Expected output
@@ -210,3 +226,158 @@ usecases/
 - The current `stories/` folder is treated as reference/sample output.
 - The command is designed to be additive. If the request is already covered, it should report reuse instead of rewriting files.
 - The generated output is intended to be close to the original `Req.Enricher` workflow, but implemented natively through OpenCode commands and an OpenCode subagent.
+
+## Azure DevOps Upload
+
+The repository also includes a config-driven Azure DevOps backlog export workflow for the generated `stories/` artifacts.
+
+Default hierarchy:
+
+- `REQ` -> `Epic`
+- `FEAT` -> `Feature`
+- `US` -> backlog item type from config, defaulting to `User Story`
+
+The uploader reads these artifact files from one use-case folder:
+
+- `REQ-*.md`
+- `FEAT-*.md`
+- `US-*.md`
+
+The uploader ignores `_summary.md` for work item creation, but keeps using the story folder as the traceability boundary.
+
+### Setup
+
+1. Edit `.opencode/config/azure-devops.json`.
+2. Replace `organization`, `project`, and any mapping defaults that do not match your Azure DevOps process.
+3. Set the PAT environment variable named by `patEnvVar`.
+4. Switch `validateOnly` to `false` when you are ready to create or link work items.
+
+PAT example:
+
+```bash
+export AZURE_DEVOPS_PAT="your-pat"
+```
+
+The PAT is never stored in git. The config stores only the environment variable name.
+
+### Config Shape
+
+Required top-level config:
+
+- `baseUrl`
+- `organization`
+- `project`
+- `apiVersion` default `7.1`
+- `patEnvVar`
+
+Optional defaults:
+
+- `validateOnly`
+- `areaPath`
+- `iterationPath`
+- `tags`
+
+Required mapping keys:
+
+- `artifactMappings.REQ`
+- `artifactMappings.FEAT`
+- `artifactMappings.US.functional`
+- `artifactMappings.US.nfr`
+
+Each mapping supports:
+
+- `workItemType`
+- `parentKind`
+- `parentRelation`
+- `extraTags`
+- `fieldMap`
+- `fixedFields`
+
+The default config uses:
+
+- `REQ -> Epic`
+- `FEAT -> Feature`, parent `REQ`
+- `US.functional -> User Story`, parent `FEAT`
+- `US.nfr -> User Story`, parent first referenced `FEAT`, extra referenced features linked as `Related`
+
+### Process Examples
+
+Agile:
+
+```json
+{
+  "artifactMappings": {
+    "US": {
+      "functional": { "workItemType": "User Story" },
+      "nfr": { "workItemType": "User Story" }
+    }
+  }
+}
+```
+
+Scrum:
+
+```json
+{
+  "artifactMappings": {
+    "US": {
+      "functional": { "workItemType": "Product Backlog Item" },
+      "nfr": { "workItemType": "Product Backlog Item" }
+    }
+  }
+}
+```
+
+Basic:
+
+```json
+{
+  "artifactMappings": {
+    "US": {
+      "functional": { "workItemType": "Issue" },
+      "nfr": { "workItemType": "Issue" }
+    }
+  }
+}
+```
+
+If your Azure DevOps process is customized, update the mapping instead of changing the script.
+
+### Upload Behavior
+
+- Validates config, PAT presence, and configured work item types before upload.
+- Accepts a single use-case folder like `stories/pomodoro-timer`.
+- Accepts `stories/` for batch processing and handles use-case folders alphabetically.
+- Creates work items first, then adds hierarchy and related links after all IDs are known.
+- Reuses saved IDs from `stories/<slug>/_ado-upload.json` on rerun to avoid duplicate work items.
+- Writes created work item URLs into the state file.
+- Supports dry-run validation through `validateOnly`.
+
+The uploader uses the Azure DevOps REST API with `application/json-patch+json` and safe common fields such as:
+
+- `System.Title`
+- `System.Description`
+- `System.Tags`
+- optional `System.AreaPath`
+- optional `System.IterationPath`
+
+Parent and traceability links use:
+
+- `System.LinkTypes.Hierarchy-Reverse`
+- `System.LinkTypes.Related`
+
+### Commands
+
+Run through OpenCode:
+
+```text
+/stories-to-azuredevops stories/pomodoro-timer
+/stories-to-azuredevops stories/
+```
+
+Run the script directly:
+
+```bash
+node .opencode/scripts/upload-azure-devops.mjs stories/pomodoro-timer
+node .opencode/scripts/upload-azure-devops.mjs stories/
+```
