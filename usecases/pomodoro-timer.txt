@@ -1,0 +1,1 @@
+Build a browser-based Pomodoro focus timer that lets a single user start, pause, reset, and complete work and break sessions.

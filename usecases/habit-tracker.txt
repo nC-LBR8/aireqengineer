@@ -1,0 +1,1 @@
+Build a browser-based habit tracker where a user can define daily habits, mark them as done for the current day, and see a simple streak overview.
