@@ -1,0 +1,72 @@
+{
+  "baseUrl": "https://dev.azure.com",
+  "organization": "your-organization",
+  "project": "your-project",
+  "apiVersion": "7.1",
+  "patEnvVar": "AZURE_DEVOPS_PAT",
+  "validateOnly": true,
+  "areaPath": "",
+  "iterationPath": "",
+  "tags": [
+    "AIREQ"
+  ],
+  "artifactMappings": {
+    "REQ": {
+      "workItemType": "Epic",
+      "parentKind": null,
+      "parentRelation": null,
+      "extraTags": [],
+      "fieldMap": {
+        "title": "System.Title",
+        "description": "System.Description",
+        "tags": "System.Tags"
+      },
+      "fixedFields": {}
+    },
+    "FEAT": {
+      "workItemType": "Feature",
+      "parentKind": "REQ",
+      "parentRelation": "System.LinkTypes.Hierarchy-Reverse",
+      "extraTags": [],
+      "fieldMap": {
+        "title": "System.Title",
+        "description": "System.Description",
+        "priority": "Microsoft.VSTS.Common.Priority",
+        "tags": "System.Tags"
+      },
+      "fixedFields": {}
+    },
+    "US": {
+      "functional": {
+        "workItemType": "User Story",
+        "parentKind": "FEAT",
+        "parentRelation": "System.LinkTypes.Hierarchy-Reverse",
+        "extraTags": [],
+        "fieldMap": {
+          "title": "System.Title",
+          "description": "System.Description",
+          "acceptanceCriteria": "Microsoft.VSTS.Common.AcceptanceCriteria",
+          "priority": "Microsoft.VSTS.Common.Priority",
+          "tags": "System.Tags"
+        },
+        "fixedFields": {}
+      },
+      "nfr": {
+        "workItemType": "User Story",
+        "parentKind": "FEAT",
+        "parentRelation": "System.LinkTypes.Hierarchy-Reverse",
+        "extraTags": [
+          "NFR"
+        ],
+        "fieldMap": {
+          "title": "System.Title",
+          "description": "System.Description",
+          "acceptanceCriteria": "Microsoft.VSTS.Common.AcceptanceCriteria",
+          "priority": "Microsoft.VSTS.Common.Priority",
+          "tags": "System.Tags"
+        },
+        "fixedFields": {}
+      }
+    }
+  }
+}
